@@ -10,7 +10,7 @@ def idct2(A):
 
 def get_intervals(pixel_map):
     min_F = 2
-    max_F = int((min(pixel_map.shape[0], pixel_map.shape[1]) / 2) - 1)
+    max_F = int((min(pixel_map.shape[0], pixel_map.shape[1]) / 5) - 1)
     return min_F, max_F
 
 def get_pixel_map(file):
@@ -23,40 +23,45 @@ def convert(pixel_map, F, d):
     len1 = pixel_map.shape[0] - (pixel_map.shape[0] % F)
     len2 = pixel_map.shape[1] - (pixel_map.shape[1] % F)
 
-    blocks = [pixel_map[x:x+F, y:y+F] for x in range(0, len1, F) for y in range(0, len2, F)]
+    block_len1 = len1 // F
+    block_len2 = len2 // F
 
-    dct_blocks = []
+    blocks = np.zeros((block_len1, block_len2, F, F), dtype=np.float32)
 
-    for block in blocks:
-        dct_blocks.append(dct2(block))
+    for i in range(block_len1):
+        for j in range(block_len2):
+            blocks[i, j] = pixel_map[i * F:(i + 1) * F, j * F:(j + 1) * F]
 
-    for block in dct_blocks:
-        for i in range(F):
-            for j in range(F):
-                if i + j >= d:
-                    block[i][j] = 0
+    for i in range(block_len1):
+        for j in range(block_len2):
+            blocks[i, j] = dct2(blocks[i, j])
 
-    idct_blocks = []
+    for i in range(block_len1):
+        for j in range(block_len2):
+            for m in range(F):
+                for n in range(F):
+                    if m + n >= d:
+                        blocks[i, j, m, n] = 0
 
-    for block in dct_blocks:
-        idct_blocks.append(idct2(block))
+    for i in range(block_len1):
+        for j in range(block_len2):
+            blocks[i, j] = idct2(blocks[i, j])
+    
+    for i in range(len(blocks)):
+        for j in range(len(blocks[i])):
+            for k in range(F):
+                for l in range(F):
+                    blocks[i][j][k][l] = int(blocks[i][j][k][l])
+                    blocks[i][j][k][l] = np.clip(blocks[i][j][k][l], 0, 255)
 
-    for block in idct_blocks:
-        for i in range(F):
-            for j in range(F):
-                block[i][j] = int(block[i][j])
-                if block[i][j] < 0:
-                    block[i][j] = 0
-                if block[i][j] > 255:
-                    block[i][j] = 255
+    reassembled_len1 = block_len1 * F
+    reassembled_len2 = block_len2 * F
 
-    reassembled = np.empty((len1, len2), dtype=np.uint8)
+    reassembled = np.empty((reassembled_len1, reassembled_len2), dtype=np.uint8)
 
-    block_index = 0
-    for i in range(0, len1, F):
-        for j in range(0, len2, F):
-            reassembled[i:i+F, j:j+F] = idct_blocks[block_index]
-            block_index += 1
+    for i in range(block_len1):
+        for j in range(block_len2):
+            reassembled[i * F:(i + 1) * F, j * F:(j + 1) * F] = blocks[i, j]
 
     output_image = Image.fromarray(reassembled)
     output_image = output_image.convert("L")

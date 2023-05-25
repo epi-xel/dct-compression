@@ -48,17 +48,12 @@ class App(ttk.Frame):
 
             min_F, max_F = cv.get_intervals(cv.get_pixel_map(file))
             self.scale1.configure(from_=min_F, to=max_F)
-            self.scale1.set(max_F / 2)
-            min_d = 1
-            max_d = 2 * max_F - 2
-            self.scale2.configure(from_=min_d, to=max_d)
-            self.scale2.set(max_d / 2)
-            self.label_scale1.configure(text="Macro-blocks size: " + str(min_F))
-            self.label_scale2.configure(text="Frequency threshold: " + str(min_d))
+            scale1_value = int((min_F + max_F) // 2)
+            self.scale1.set(scale1_value)
+            self.label_scale1.configure(text="Macro-blocks size: " + str(scale1_value))
             self.min_label1.configure(text=str(min_F))
             self.max_label1.configure(text=str(max_F))
-            self.min_label2.configure(text=str(min_d))
-            self.max_label2.configure(text=str(max_d))
+            self.set_scale2_values(scale1_value)
             self.frame.grid(
                 row=2, column=0, padx=20, pady=10, sticky="nsew",
             )
@@ -70,11 +65,7 @@ class App(ttk.Frame):
 
     def open_file(self):
 
-            filetypes = (
-                ('BMP files', '*.bmp'),
-            )
             f = open_file_chooser()
-            #f = fd.askopenfile(filetypes=filetypes)
             if f:
                 with open(f, 'rb') as file:
                     image = Image.open(file)
@@ -92,7 +83,7 @@ class App(ttk.Frame):
         F, d = self.get_scale_value()
         old_image = Image.open(self.file_name.get())
         image = cv.convert(cv.get_pixel_map(self.file_name.get()), int(F), int(d))
-        width, height = image.size
+        width, height = old_image.size
         
         if width > height:
             target_width = 800
@@ -142,15 +133,20 @@ class App(ttk.Frame):
     def get_scale_value(self):
         return self.scale1.get(), self.scale2.get()
     
-    def set_new_value1(self, value):
-        self.label_scale1.configure(text="Macro-blocks size: " + str(int(float(value))))
+    def set_scale2_values(self, value):
         min_d = 1
-        max_d = int(2 * int(float(value)) - 2)
+        max_d = 2 * int(float(value)) - 2
         self.scale2.configure(from_=min_d, to=max_d)
-        self.scale2.set(max_d / 2)
-        self.label_scale2.configure(text="Frequency threshold: " + str(min_d))
+        scale2_value = int((min_d + max_d) // 2)
+        self.scale2.set(scale2_value)
+        self.label_scale2.configure(text="Frequency threshold: " + str(scale2_value))
         self.min_label2.configure(text=str(min_d))
         self.max_label2.configure(text=str(max_d))
+
+    def set_new_value1(self, value):
+        self.label_scale1.configure(text="Macro-blocks size: " + str(int(float(value))))
+        self.set_scale2_values(value)
+
 
     def set_new_value2(self, value):
         self.label_scale2.configure(text="Frequency threshold: " + str(int(float(value))))
@@ -203,7 +199,6 @@ class App(ttk.Frame):
         self.open_button.grid(column=0, row=1)
 
         self.image = ttk.Label(self.file, anchor="center")
-        #self.image.grid(column=0, row=2, padx=10, pady=5, sticky="nsew", columnspan=3)
 
         self.label_scale1 = ttk.Label(self.frame, text="Macro-blocks size:")
         self.label_scale1.grid(row=0, padx=5, pady=10, columnspan = 3, sticky="ew")
