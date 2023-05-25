@@ -1,6 +1,7 @@
 from PIL import Image
 import scipy.fftpack as fft
 import numpy as np
+from joblib import Parallel, delayed
 
 def dct2(A):
     return fft.dct(fft.dct(A, axis=0, norm='ortho'), axis=1, norm='ortho')
