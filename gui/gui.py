@@ -1,37 +1,21 @@
+import numpy as np
+import converter as cv
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog as fd
-import numpy as np
-import converter as cv
 from PIL import ImageTk, Image
 import sv_ttk
 import sys
 from PyQt5.QtWidgets import QApplication, QFileDialog
-
-
-def open_file_chooser():
-
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
-    dark_palette = app.palette()
-    dark_palette.setColor(dark_palette.Window, dark_palette.color(dark_palette.Window).darker(150))
-    dark_palette.setColor(dark_palette.WindowText, dark_palette.color(dark_palette.WindowText).lighter(200))
-    app.setPalette(dark_palette)
-
-    file_dialog = QFileDialog()
-    file_dialog.setFileMode(QFileDialog.ExistingFile)
-    file_dialog.setNameFilter('Immagini BMP (*.bmp)')
-    file_dialog.exec_()
-    selected_files = file_dialog.selectedFiles()
-    return selected_files[0]
-
+from threading import Thread
+from multiprocessing import Process, Queue
 
 class App(ttk.Frame):
+
     def __init__(self, parent):
         ttk.Frame.__init__(self)
 
-        # Make the app responsive
         self.rowconfigure(index=0, weight=1)
         self.rowconfigure(index=1, weight=4)
         self.rowconfigure(index=2, weight=2)
@@ -39,45 +23,61 @@ class App(ttk.Frame):
         
         self.columnconfigure(index=0, weight=1)
 
-        # Create control variables"red"
         self.file_name = tk.StringVar(value=None)
 
         self.setup_widgets()
 
+    def open_file_chooser(self, queue):
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)   
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setNameFilter('Immagini BMP (*.bmp)')
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            queue.put(selected_files[0])
+
     def set_intervals(self, file):
 
-            min_F, max_F = cv.get_intervals(cv.get_pixel_map(file))
-            self.scale1.configure(from_=min_F, to=max_F)
-            scale1_value = int((min_F + max_F) // 2)
-            self.scale1.set(scale1_value)
-            self.label_scale1.configure(text="Macro-blocks size: " + str(scale1_value))
-            self.min_label1.configure(text=str(min_F))
-            self.max_label1.configure(text=str(max_F))
-            self.set_scale2_values(scale1_value)
-            self.frame.grid(
-                row=2, column=0, padx=20, pady=10, sticky="nsew",
-            )
-            self.file.grid(
-                row=1, column=0, padx=20, pady=(10, 0), sticky="nsew",
-            )
-            self.convert_button.grid(column=0, row=3, padx=10, pady=10)
-            self.file_name.set(file.name)
+        min_F, max_F = cv.get_intervals(cv.get_pixel_map(file))
+        self.scale1.configure(from_=min_F, to=max_F)
+        scale1_value = int((min_F + max_F) // 2)
+        self.scale1.set(scale1_value)
+        self.label_scale1.configure(text="Macro-blocks size: " + str(scale1_value))
+        self.min_label1.configure(text=str(min_F))
+        self.max_label1.configure(text=str(max_F))
+        self.set_scale2_values(scale1_value)
+        self.frame.grid(
+            row=2, column=0, padx=20, pady=10, sticky="nsew",
+        )
+        self.file.grid(
+            row=1, column=0, padx=20, pady=(10, 0), sticky="nsew",
+        )
+        self.convert_button.grid(column=0, row=3, padx=10, pady=10)
+        self.file_name.set(file.name)
+
+    def open_file_thread(self):
+        queue = Queue()
+        p = Process(target=self.open_file_chooser, args=(queue,))
+        p.start()
+        p.join()
+        f = queue.get()
+        if f:
+            with open(f, 'rb') as file:
+                image = Image.open(file)
+                target_height = 400
+                width, height = image.size
+                relative_width = int((target_height / height) * width)
+                image.thumbnail((target_height, relative_width))
+                img = ImageTk.PhotoImage(image)
+                self.image.configure(image=img, anchor="center")
+                self.image.image = img
+                self.image.grid(row=0, column=1, padx=10, pady=(10, 5), columnspan=3)
+                self.set_intervals(file)
 
     def open_file(self):
-
-            f = open_file_chooser()
-            if f:
-                with open(f, 'rb') as file:
-                    image = Image.open(file)
-                    target_height = 400
-                    width, height = image.size
-                    relative_width = int((target_height / height) * width)
-                    image.thumbnail((target_height, relative_width))
-                    img = ImageTk.PhotoImage(image)
-                    self.image.configure(image=img, anchor="center")
-                    self.image.image = img
-                    self.image.grid(row=0, column=1, padx=10, pady=(10, 5), columnspan=3)
-                    self.set_intervals(file)
+        Thread(target=self.open_file_thread).start()
 
     def convert_and_show(self):
         F, d = self.get_scale_value()
@@ -99,7 +99,7 @@ class App(ttk.Frame):
         nw = Toplevel(self)
         nw.title("Comparison")
         nw.resizable(False, False)
-        geometry = str(image.size[0] + old_image.size[0]) + "x" + str(image.size[1] + 50)
+        geometry = str(image.size[0] + old_image.size[0] + 20) + "x" + str(image.size[1] + 100)
         if((image.size[0] + old_image.size[0]) < 300):
             geometry = "300x" + str(image.size[1] + 70)
         nw.geometry(geometry)
@@ -217,7 +217,6 @@ class App(ttk.Frame):
         self.max_label2 = ttk.Label(self.frame, text="100")
         self.max_label2.grid(row=3, column=2, padx=5, pady=(5, 5), sticky="w")
 
-        # Scale
         self.scale1 = ttk.Scale(
             self.frame,
             from_=100,
