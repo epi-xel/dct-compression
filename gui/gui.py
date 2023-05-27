@@ -134,7 +134,6 @@ class App(ttk.Frame):
         self.label_scale1.configure(text="Macro-blocks size: " + str(int(float(value))))
         self.set_scale2_values(value)
 
-
     def set_new_value2(self, value):
         self.label_scale2.configure(text="Frequency threshold: " + str(int(float(value))))
 
