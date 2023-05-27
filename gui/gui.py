@@ -1,15 +1,12 @@
-import numpy as np
 import converter as cv
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-from tkinter import filedialog as fd
 from PIL import ImageTk, Image
 import sv_ttk
-import sys
-from PyQt5.QtWidgets import QApplication, QFileDialog
 from threading import Thread
 from multiprocessing import Process, Queue
+import filechooser as fc
 
 class App(ttk.Frame):
 
@@ -26,17 +23,6 @@ class App(ttk.Frame):
         self.file_name = tk.StringVar(value=None)
 
         self.setup_widgets()
-
-    def open_file_chooser(self, queue):
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)   
-        file_dialog = QFileDialog()
-        file_dialog.setFileMode(QFileDialog.ExistingFile)
-        file_dialog.setNameFilter('Immagini BMP (*.bmp)')
-        if file_dialog.exec_():
-            selected_files = file_dialog.selectedFiles()
-            queue.put(selected_files[0])
 
     def set_intervals(self, file):
 
@@ -58,8 +44,9 @@ class App(ttk.Frame):
         self.file_name.set(file.name)
 
     def open_file_thread(self):
+
         queue = Queue()
-        p = Process(target=self.open_file_chooser, args=(queue,))
+        p = Process(target=fc.open_file_chooser, args=(queue,))
         p.start()
         p.join()
         f = queue.get()
@@ -80,11 +67,12 @@ class App(ttk.Frame):
         Thread(target=self.open_file_thread).start()
 
     def convert_and_show(self):
+
         F, d = self.get_scale_value()
         old_image = Image.open(self.file_name.get())
         image = cv.convert(cv.get_pixel_map(self.file_name.get()), int(F), int(d))
+
         width, height = old_image.size
-        
         if width > height:
             target_width = 800
             relative_height = int((target_width / width) * height)
@@ -129,7 +117,6 @@ class App(ttk.Frame):
         nw.label_new.grid(row=0, column=1, padx=10, pady=(10, 5))
         nw.label_old.grid(row=0, column=0, padx=10, pady=(10, 5))
 
-        
     def get_scale_value(self):
         return self.scale1.get(), self.scale2.get()
     
