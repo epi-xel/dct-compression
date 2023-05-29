@@ -1,14 +1,12 @@
-import converter as cv
+import utils.converter as cv
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from PIL import ImageTk, Image
-import sv_ttk
-import sys
-from PyQt5.QtWidgets import QApplication, QFileDialog
 from threading import Thread
 from multiprocessing import Process, Queue
-from zoom import *
+from gui.zoom import *
+from gui.filechooser import *
 
 
 class App(ttk.Frame):
@@ -26,17 +24,6 @@ class App(ttk.Frame):
         self.file_name = tk.StringVar(value=None)
 
         self.setup_widgets()
-
-    def open_file_chooser(self, queue):
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)   
-        file_dialog = QFileDialog()
-        file_dialog.setFileMode(QFileDialog.ExistingFile)
-        file_dialog.setNameFilter('Immagini BMP (*.bmp)')
-        if file_dialog.exec_():
-            selected_files = file_dialog.selectedFiles()
-            queue.put(selected_files[0])
 
     def set_intervals(self, file):
 
@@ -59,7 +46,7 @@ class App(ttk.Frame):
 
     def open_file_thread(self):
         queue = Queue()
-        p = Process(target=self.open_file_chooser, args=(queue,))
+        p = Process(target=open_file_chooser, args=(queue,))
         p.start()
         p.join()
         f = queue.get()
@@ -205,28 +192,3 @@ class App(ttk.Frame):
             command=self.set_new_value2,
         )
         self.scale2.grid(row=3, column=1, padx=10, pady=10, sticky="ew")
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("JPEG Converter")
-
-    sv_ttk.set_theme("dark")
-
-    app = App(root)
-    app.pack(fill="both", expand=True)
-
-    style = ttk.Style()
-    style.configure("Custom.TFiledialog",
-                    foreground="#fafafa",
-                    background="#1c1c1c")
-
-    root.update()
-    root.minsize(root.winfo_width(), root.winfo_height())
-    x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
-    y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
-    root.geometry("+{}+{}".format(x_cordinate, y_cordinate-20))
-    #h = root.winfo_screenheight()
-    #root.geometry("900x600")
-
-    root.mainloop()
-
