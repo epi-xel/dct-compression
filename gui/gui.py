@@ -1,12 +1,16 @@
 import converter as cv
+from resize import *
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from PIL import ImageTk, Image
 import sv_ttk
+import sys
+from PyQt5.QtWidgets import QApplication, QFileDialog
 from threading import Thread
 from multiprocessing import Process, Queue
-import filechooser as fc
+from zoom import *
+
 
 class App(ttk.Frame):
 
@@ -16,13 +20,24 @@ class App(ttk.Frame):
         self.rowconfigure(index=0, weight=1)
         self.rowconfigure(index=1, weight=4)
         self.rowconfigure(index=2, weight=2)
-        self.rowconfigure(index=3, weight=2)
+        self.rowconfigure(index=3, weight=1)
         
         self.columnconfigure(index=0, weight=1)
 
         self.file_name = tk.StringVar(value=None)
 
         self.setup_widgets()
+
+    def open_file_chooser(self, queue):
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)   
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.ExistingFile)
+        file_dialog.setNameFilter('Immagini BMP (*.bmp)')
+        if file_dialog.exec_():
+            selected_files = file_dialog.selectedFiles()
+            queue.put(selected_files[0])
 
     def set_intervals(self, file):
 
@@ -40,74 +55,44 @@ class App(ttk.Frame):
         self.file.grid(
             row=1, column=0, padx=20, pady=(10, 0), sticky="nsew",
         )
-        self.convert_button.grid(column=0, row=3, padx=10, pady=10)
+        self.convert_button.grid(column=0, row=3, padx=10, pady=20)
         self.file_name.set(file.name)
 
     def open_file_thread(self):
-
         queue = Queue()
-        p = Process(target=fc.open_file_chooser, args=(queue,))
+        p = Process(target=self.open_file_chooser, args=(queue,))
         p.start()
         p.join()
         f = queue.get()
         if f:
             with open(f, 'rb') as file:
                 image = Image.open(file)
-                target_height = 400
-                width, height = image.size
-                relative_width = int((target_height / height) * width)
-                image.thumbnail((target_height, relative_width))
-                img = ImageTk.PhotoImage(image)
-                self.image.configure(image=img, anchor="center")
-                self.image.image = img
-                self.image.grid(row=0, column=1, padx=10, pady=(10, 5), columnspan=3)
+                self.canvas = CanvasImage(self.file, path=image)
+                self.canvas.grid(row=0, column=1, padx=10, pady=0,sticky="nsew")
                 self.set_intervals(file)
 
     def open_file(self):
         Thread(target=self.open_file_thread).start()
 
     def convert_and_show(self):
-
         F, d = self.get_scale_value()
         old_image = Image.open(self.file_name.get())
         image = cv.convert(cv.get_pixel_map(self.file_name.get()), int(F), int(d))
-
-        width, height = old_image.size
-        if width > height:
-            target_width = 800
-            relative_height = int((target_width / width) * height)
-            image.thumbnail((target_width, relative_height))
-            old_image.thumbnail((target_width, relative_height))
-        else:
-            target_height = 800
-            relative_width = int((target_height / height) * width)
-            image.thumbnail((relative_width, target_height))
-            old_image.thumbnail((relative_width, target_height))
-
+        
         nw = Toplevel(self)
         nw.title("Comparison")
-        nw.resizable(False, False)
-        geometry = str(image.size[0] + old_image.size[0] + 20) + "x" + str(image.size[1] + 100)
-        if((image.size[0] + old_image.size[0]) < 300):
-            geometry = "300x" + str(image.size[1] + 70)
-        nw.geometry(geometry)
 
         nw.columnconfigure(index=0, weight=1)
         nw.columnconfigure(index=1, weight=1)
         nw.rowconfigure(index=0, weight=1)
         nw.rowconfigure(index=1, weight=10)
-        
-        nw.old = ttk.Label(nw, text="Original image")
-        nw.new = ttk.Label(nw, text="Converted image")
-        img_new = ImageTk.PhotoImage(image)
-        img_old = ImageTk.PhotoImage(old_image)
-        
-        nw.new.configure(image=img_new)
-        nw.old.configure(image=img_old)
-        
-        nw.new.image = img_new
-        nw.old.image = img_old
-        
+
+        nw.old = CanvasImage(nw, path=old_image)
+        nw.new = CanvasImage(nw, path=image)
+
+        nw.old.add_twin(nw.new)
+        nw.new.add_twin(nw.old)
+
         nw.old.grid(row=1, column=0, padx=10, pady=(10, 5))
         nw.new.grid(row=1, column=1, padx=10, pady=(10, 5))
 
@@ -117,6 +102,7 @@ class App(ttk.Frame):
         nw.label_new.grid(row=0, column=1, padx=10, pady=(10, 5))
         nw.label_old.grid(row=0, column=0, padx=10, pady=(10, 5))
 
+        
     def get_scale_value(self):
         return self.scale1.get(), self.scale2.get()
     
@@ -143,7 +129,7 @@ class App(ttk.Frame):
         self.head.grid(
             row=0, column=0, padx=(10, 10), pady=(10, 10)
         )
-
+        
         self.intro = ttk.Label(
             self.head,
             text="This application allows you to convert a BMP image into a JPEG one.\nClick the button below to open a file"
@@ -158,8 +144,8 @@ class App(ttk.Frame):
         self.file.columnconfigure(index=0, weight=0)
         self.file.columnconfigure(index=1, weight=10) 
         self.file.columnconfigure(index=2, weight=0)
-        self.file.rowconfigure(index=2, weight=1)
-
+        self.file.rowconfigure(index=0, weight=1)
+    
         self.frame = ttk.LabelFrame(self, text="Set properties", padding=(20, 10))
 
         self.frame.grid_forget()
@@ -182,9 +168,7 @@ class App(ttk.Frame):
             command=self.open_file
         )
 
-        self.open_button.grid(column=0, row=1)
-
-        self.image = ttk.Label(self.file, anchor="center")
+        self.open_button.grid(column=0, row=1, pady=10)
 
         self.label_scale1 = ttk.Label(self.frame, text="Macro-blocks size:")
         self.label_scale1.grid(row=0, padx=5, pady=10, columnspan = 3, sticky="ew")
@@ -223,7 +207,6 @@ class App(ttk.Frame):
         )
         self.scale2.grid(row=3, column=1, padx=10, pady=10, sticky="ew")
 
-
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("JPEG Converter")
@@ -242,8 +225,9 @@ if __name__ == "__main__":
     root.minsize(root.winfo_width(), root.winfo_height())
     x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
     y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
-    #root.geometry("+{}+{}".format(x_cordinate, y_cordinate-20))
-    root.geometry("900x800")
-    root.resizable(False, False)
+    root.geometry("+{}+{}".format(x_cordinate, y_cordinate-20))
+    #h = root.winfo_screenheight()
+    #root.geometry("900x600")
 
     root.mainloop()
+
