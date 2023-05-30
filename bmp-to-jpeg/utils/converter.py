@@ -39,38 +39,24 @@ def divide_in_blocks(pixel_map, F):
     return blocks
 
 
-def apply_dct(blocks):
+def delete_freq(block, d):
 
-    for i in range(len(blocks)):
-        for j in range(len(blocks[i])):
-            blocks[i, j] = dct2(blocks[i, j])
-
-
-def delete_high_freq(blocks, d):
-
-    for i in range(blocks.shape[0]):
-        for j in range(blocks.shape[1]):
-            for m in range(blocks.shape[2]):
-                for n in range(blocks.shape[3]):
-                    if m + n >= d:
-                        blocks[i, j, m, n] = 0
+    for i in range(block.shape[0]):
+        for j in range(block.shape[1]):
+            if i + j >= d:
+                block[i, j] = 0
+    
+    return block
 
 
-def apply_idct(blocks):
+def clip(block):
 
-    for i in range(len(blocks)):
-        for j in range(len(blocks[i])):
-            blocks[i, j] = idct2(blocks[i, j])
-
-
-def clip(blocks):
-
-    for i in range(blocks.shape[0]):
-        for j in range(blocks.shape[1]):
-            for k in range(blocks.shape[2]):
-                for l in range(blocks.shape[3]):
-                    blocks[i][j][k][l] = int(blocks[i][j][k][l])
-                    blocks[i][j][k][l] = np.clip(blocks[i][j][k][l], 0, 255)
+    for i in range(block.shape[0]):
+        for j in range(block.shape[1]):
+            block[i, j] = int(block[i, j])
+            block[i, j] = np.clip(block[i, j], 0, 255)
+    
+    return block
 
 
 def reassemble(blocks):
@@ -99,9 +85,13 @@ def get_output_image(reassembled):
 def convert(pixel_map, F, d):
 
     blocks = divide_in_blocks(pixel_map, F)
-    apply_dct(blocks)
-    delete_high_freq(blocks, d)
-    apply_idct(blocks)
-    clip(blocks)
+    
+    for i in range(blocks.shape[0]):
+        for j in range(blocks.shape[1]):
+            blocks[i, j] = dct2(blocks[i, j])
+            blocks[i, j] = delete_freq(blocks[i, j], d)
+            blocks[i, j] = idct2(blocks[i, j])
+            blocks[i, j] = clip(blocks[i, j])
+    
     reassembled = reassemble(blocks)
     return get_output_image(reassembled)
