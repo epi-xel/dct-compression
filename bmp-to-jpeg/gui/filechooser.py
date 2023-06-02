@@ -11,3 +11,8 @@ def open_file_chooser(queue):
         if file_dialog.exec_():
             selected_files = file_dialog.selectedFiles()
             queue.put(selected_files[0])
+        else:
+            queue.put(None)
+        file_dialog.close()
+        app.exit()
+       

@@ -7,6 +7,8 @@ from threading import Thread
 from multiprocessing import Process, Queue
 from gui.zoom import *
 from gui.filechooser import *
+from PyQt5.QtWidgets import QApplication, QFileDialog
+import psutil
 
 
 class App(ttk.Frame):
@@ -14,12 +16,17 @@ class App(ttk.Frame):
     def __init__(self, parent):
         ttk.Frame.__init__(self)
 
+        self.parent = parent
+
         self.rowconfigure(index=0, weight=1)
         self.rowconfigure(index=1, weight=4)
         self.rowconfigure(index=2, weight=2)
         self.rowconfigure(index=3, weight=1)
         
         self.columnconfigure(index=0, weight=1)
+
+        self.p = None
+        self.fc_app = None
 
         self.file_name = tk.StringVar(value=None)
 
@@ -45,10 +52,12 @@ class App(ttk.Frame):
         self.file_name.set(file.name)
 
     def open_file_thread(self):
+        if(self.p):
+            self.p.terminate()
         queue = Queue()
-        p = Process(target=open_file_chooser, args=(queue,))
-        p.start()
-        p.join()
+        self.p = Process(target=open_file_chooser, args=(queue,))
+        self.p.start()
+        self.p.join()
         f = queue.get()
         if f:
             with open(f, 'rb') as file:
@@ -192,3 +201,15 @@ class App(ttk.Frame):
             command=self.set_new_value2,
         )
         self.scale2.grid(row=3, column=1, padx=10, pady=10, sticky="ew")
+
+
+    def on_closing(self):
+        if(self.p and self.p.is_alive()):
+            self.p.terminate()
+            self.p.join()
+        instance = QApplication.instance()
+        if instance:
+            instance.quit()
+            instance.closeAllWindows()
+        self.parent.destroy()
+

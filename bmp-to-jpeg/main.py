@@ -23,7 +23,7 @@ if __name__ == "__main__":
     x_cordinate = int((root.winfo_screenwidth() / 2) - (root.winfo_width() / 2))
     y_cordinate = int((root.winfo_screenheight() / 2) - (root.winfo_height() / 2))
     root.geometry("+{}+{}".format(x_cordinate, y_cordinate-20))
-    #h = root.winfo_screenheight()
-    #root.geometry("900x600")
+
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
 
     root.mainloop()
