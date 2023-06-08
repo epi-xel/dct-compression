@@ -102,7 +102,7 @@ class App(ttk.Frame):
         return self.scale1.get(), self.scale2.get()
     
     def set_scale2_values(self, value):
-        min_d = 1
+        min_d = 0
         max_d = 2 * int(float(value)) - 2
         self.scale2.configure(from_=min_d, to=max_d)
         scale2_value = int((min_d + max_d) // 2)

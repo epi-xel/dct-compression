@@ -94,4 +94,5 @@ def convert(pixel_map, F, d):
             blocks[i, j] = clip(blocks[i, j])
     
     reassembled = reassemble(blocks)
+    
     return get_output_image(reassembled)
